@@ -245,7 +245,7 @@ uint64_t ObjectGetUInt(Object *t) { return t->value.uint_value; }
 
 float ObjectGetFloat(Object *t) { return t->value.float_value; }
 
-double ObjectGetDouble(Object *t) { return t->value.float_value; }
+double ObjectGetDouble(Object *t) { return t->value.double_value; }
 
 RawBuffer *ObjectGetBin(Object *t) { return t->value.bin_value; }
 
