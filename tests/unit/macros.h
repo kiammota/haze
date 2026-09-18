@@ -7,7 +7,8 @@
   printf("[TEST] %s\n", message)
 
 #define TEST_PASS() \
-  printf("[PASS] %s\n", __func__)
+    printf("[PASS] %s\n", __func__); \
+    return 0
 
 #define TEST_FAIL(message) \
   do { \

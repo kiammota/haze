@@ -2,11 +2,22 @@
 #ifndef RESULT_AUDIO_H
 #define RESULT_AUDIO_H
 
+
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+static inline char *ResultAudioStrdup(const char *src) {
+    size_t len = strlen(src) + 1;
+    char *copy = malloc(len);
+
+    if (!copy)
+        return NULL;
+
+    memcpy(copy, src, len);
+    return copy;
+}
 
 typedef struct {
     bool success;
@@ -30,7 +41,7 @@ static inline ResultAudio ResultAudioErrF(const char *fmt, ...) {
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-    return (ResultAudio){ .success = false, .msg = strdup(buf), .owned = true };
+    return (ResultAudio){ .success = false, .msg = ResultAudioStrdup(buf), .owned = true };
 }
 
 static inline bool ResultAudioIsOk(ResultAudio r) {

@@ -8,6 +8,7 @@
 #include "mpack/mpack-writer.h"
 #include "msgpack/MessagePackRPC.h"
 #include "msgpack/Object.h"
+#include "strdup.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -90,6 +91,7 @@ static void ObjectMarshalMPack(mpack_writer_t *writer, const Object *obj) {
 static Object *ObjectUnmarshalMPack(mpack_reader_t *reader) {
   mpack_tag_t tag = mpack_read_tag(reader);
   if (mpack_reader_error(reader) != mpack_ok) {
+
     return NULL;
   }
 
@@ -249,64 +251,73 @@ RawBuffer *ResponseMarshal(Response *s) {
 }
 
 Response *ResponseUnmarshal(RawBuffer *b) {
-  if (!b || RawBufferLen(b) == 0)
-    return NULL;
+    if (!b || RawBufferLen(b) == 0)
+        return NULL;
 
-  mpack_reader_t reader;
-  mpack_reader_init_data(&reader, (const char *)RawBufferData(b),
-                         RawBufferLen(b));
+    mpack_reader_t reader;
+    mpack_reader_init_data(
+        &reader,
+        (const char *)RawBufferData(b),
+        RawBufferLen(b)
+    );
 
-  Response *response = NULL;
+    Response *response = NULL;
 
-  uint32_t count = mpack_expect_array(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok || count != 4) {
-    goto fail;
-  }
+    uint32_t count = mpack_expect_array(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok || count != 4)
+        goto fail;
 
-  response = ResponseNew();
-  if (!response) {
-    goto fail;
-  }
+    response = ResponseNew();
+    if (!response)
+        goto fail;
 
-  /* 1. type */
-  response->type = (HazeServerRPCType)mpack_expect_u8(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok ||
-      response->type != HAZE_RPC_RESPONSE) {
-    goto fail;
-  }
+    /* 1. type */
+    response->type = (HazeServerRPCType)mpack_expect_u8(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok ||
+        response->type != HAZE_RPC_RESPONSE)
+        goto fail;
 
-  /* 2. msgid */
-  response->msgid = mpack_expect_u32(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok) {
-    goto fail;
-  }
+    /* 2. msgid */
+    response->msgid = mpack_expect_u32(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok)
+        goto fail;
 
-  /* 3. error */
-  response->error = ObjectUnmarshalMPack(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok) {
-    goto fail;
-  }
+    /* 3. error */
+    response->error = ObjectUnmarshalMPack(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok)
+        goto fail;
 
-  /* 4. result */
-  response->result = ObjectUnmarshalMPack(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok) {
-    goto fail;
-  }
+    if (response->error &&
+        ObjectGetType(response->error) == OBJ_NIL) {
+        ObjectFree(&response->error);
+        response->error = NULL;
+    }
 
-  mpack_done_array(&reader);
-  if (mpack_reader_error(&reader) != mpack_ok) {
-    goto fail;
-  }
+    /* 4. result */
+    response->result = ObjectUnmarshalMPack(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok)
+        goto fail;
 
-  mpack_reader_destroy(&reader);
-  return response;
+    if (response->result &&
+        ObjectGetType(response->result) == OBJ_NIL) {
+        ObjectFree(&response->result);
+        response->result = NULL;
+    }
+
+    mpack_done_array(&reader);
+    if (mpack_reader_error(&reader) != mpack_ok)
+        goto fail;
+
+    mpack_reader_destroy(&reader);
+    return response;
 
 fail:
-  mpack_reader_destroy(&reader);
-  if (response) {
-    ResponseFree(&response);
-  }
-  return NULL;
+    mpack_reader_destroy(&reader);
+
+    if (response)
+        ResponseFree(&response);
+
+    return NULL;
 }
 
 bool ResponseFree(Response **response) {
@@ -422,49 +433,65 @@ Response *ResponseCreateInt(uint32_t msgid, int64_t value) {
   return resp;
 }
 
-Response* ResponseCreateResultAudio(uint32_t msgid, ResultAudio res) {
-    Response *r = res.success
-        ? ResponseCreateNilResult(msgid)
-        : ResponseCreateError(msgid, res.msg);
+Response *ResponseCreateResultAudio(uint32_t msgid, ResultAudio res) {
+  Response *r = res.success ? ResponseCreateNilResult(msgid)
+                            : ResponseCreateError(msgid, res.msg);
 
-    ResultAudioFree(&res);   
-    return r;
+  ResultAudioFree(&res);
+  return r;
 }
 
 char *ResponseToString(const Response *res) {
-  char *responseStr = (char *)malloc(1);
+    char *responseStr = (char *)malloc(1);
 
-  char *strError = strdup(ObjectGetValue(ResponseError(res)).str_value);
-  char *strResult = NULL;
+    char *strError = StrDup(ObjectGetValue(ResponseError(res)).str_value);
+    char *strResult = NULL;
 
-  const Object *resultObj = ResponseResult(res);
+    const Object *resultObj = ResponseResult(res);
 
-  switch (ObjectGetType(resultObj)) {
-  case OBJ_NIL:
-    strResult = strdup("nil");
-  case OBJ_STR:
-    strResult = strdup(ObjectGetValue(resultObj).str_value);
-    break;
-  case OBJ_UND:
-    strResult = strdup("und");
-    break;
-  case OBJ_BOOL:
-    strResult = strdup(ObjectGetValue(resultObj).bool_value ? "true" : "false");
-  case OBJ_DOUBLE:
-  case OBJ_FLOAT:
-  case OBJ_INT:
-  case OBJ_UINT:
-    strResult = strdup("some integer");
-    break;
-  case OBJ_BIN:
-    strResult = strdup("<binary_encoded");
-    break;
-  default:
-    strResult = strdup("<undefined>");
-  }
+    switch (ObjectGetType(resultObj)) {
+    case OBJ_NIL:
+        strResult = StrDup("nil");
+    case OBJ_STR:
+        strResult = StrDup(ObjectGetValue(resultObj).str_value);
+        break;
+    case OBJ_UND:
+        strResult = StrDup("und");
+        break;
+    case OBJ_BOOL:
+        strResult = StrDup(
+            ObjectGetValue(resultObj).bool_value ? "true" : "false"
+        );
+    case OBJ_DOUBLE:
+    case OBJ_FLOAT:
+    case OBJ_INT:
+    case OBJ_UINT:
+        strResult = StrDup("some integer");
+        break;
+    case OBJ_BIN:
+        strResult = StrDup("<binary_encoded");
+        break;
+    default:
+        strResult = StrDup("<undefined>");
+    }
 
-  sprintf(responseStr, "[%d,%d,%s,%s]", HAZE_RPC_RESPONSE, ResponseMsgId(res), strError, strResult);
-  free(strError);
-  free(strResult);
-  return responseStr;
+    sprintf(
+        responseStr,
+        "[%d,%d,%s,%s]",
+        HAZE_RPC_RESPONSE,
+        ResponseMsgId(res),
+        strError,
+        strResult
+    );
+
+    free(strError);
+    free(strResult);
+
+    return responseStr;
+}
+
+Response *ResponseCreateOk(uint32_t msgid) {
+
+  Result res = {.msg = "", .success = true};
+  return ResponseCreateResult(msgid, res);
 }
