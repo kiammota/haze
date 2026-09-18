@@ -1,6 +1,9 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func Print(msg ...string) {
 	fmt.Print(bold + "==> " + reset)
@@ -14,12 +17,5 @@ func Print(msg ...string) {
 }
 
 func PrintErr(msg ...string) {
-	fmt.Println("Error: ")
-	for i, m := range msg {
-		if i > 0 {
-			fmt.Print(" ")
-		}
-		fmt.Print(m)
-	}
-	fmt.Println()
+	fmt.Printf("error: %s\n", strings.Join(msg, " "))
 }
