@@ -106,7 +106,12 @@ Object *ObjectCopy(const Object *v) {
 
   case OBJ_BIN:
     if (v->value.bin_value) {
-      copy->value.bin_value = v->value.bin_value;
+      copy->value.bin_value = RawBufferDup(v->value.bin_value);
+
+      if (!copy->value.bin_value) {
+        free(copy);
+        return NULL;
+      }
     } else {
       copy->value.bin_value = NULL;
     }
@@ -212,8 +217,9 @@ Object *ObjectCreateDouble(double v) {
 }
 
 ObjectType ObjectGetType(const Object *t) {
-    if (!t) return OBJ_UND;
-    return t->type;
+  if (!t)
+    return OBJ_UND;
+  return t->type;
 }
 
 ObjectValue ObjectGetValue(const Object *t) {
@@ -249,10 +255,7 @@ double ObjectGetDouble(Object *t) { return t->value.double_value; }
 
 RawBuffer *ObjectGetBin(Object *t) { return t->value.bin_value; }
 
-ObjectArray* ObjectGetArray(Object* t) {
-  return t->value.array_value;
-}
-
+ObjectArray *ObjectGetArray(Object *t) { return t->value.array_value; }
 
 // --- Operações de Array ---
 
