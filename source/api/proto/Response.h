@@ -1,3 +1,11 @@
+
+/*  ----------------
+Protocol implementations follow the MSGPACK-RPC convention. 
+Consult the specification for further details at:
+
+https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md
+-------------- */
+
 #ifndef PROTO_RESPONSE_H
 #define PROTO_RESPONSE_H
 

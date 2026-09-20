@@ -1,4 +1,11 @@
-/* HazeServerRequest.h */
+
+/*  ----------------
+Protocol implementations follow the MSGPACK-RPC convention. 
+Consult the specification for further details at:
+
+https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md
+-------------- */
+
 #ifndef HAZE_SERVER_REQUEST_H
 #define HAZE_SERVER_REQUEST_H
 

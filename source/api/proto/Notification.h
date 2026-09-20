@@ -1,3 +1,10 @@
+/*  ----------------
+Protocol implementations follow the MSGPACK-RPC convention. 
+Consult the specification for further details at:
+
+https://github.com/msgpack-rpc/msgpack-rpc/blob/master/spec.md
+-------------- */
+
 #ifndef PROTO_NOTIFICATION_H
 #define PROTO_NOTIFICATION_H
 
@@ -10,7 +17,7 @@
 #include <stdint.h>
 
 typedef struct {
-  HazeServerRPCType type;   // sempre HAZE_RPC_NOTIFICATION aqui
+  HazeServerRPCType type;   
   char *method;
   ObjectArray *params;
 } Notification;
