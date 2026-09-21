@@ -1,6 +1,7 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+#include "JobQueue.h"
 #include "audio/AudioEngine.h"
 #include "fs/InstanceRegistry.h"
 #include "fs/Paths.h"
@@ -17,6 +18,8 @@ typedef struct {
   Paths* _paths;
   InstanceReg* _instanceRegFile;
   AudioEngine* _audioEngine;
+  JobQueue* _requests;
+  JobQueue* _results;
 } Context;
 
 /**
@@ -64,4 +67,6 @@ const InstanceReg* ContextGetInstanceRegistry(const Context* gi);
 
 const AudioEngine* ContextGetAudioEngine(const Context* ctx);
 
+const JobQueue* ContextGetRequestQueue(const Context* ctx);
+const JobQueue* ContextgetResultQueue(const Context* ctx);
 #endif

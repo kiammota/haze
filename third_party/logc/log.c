@@ -21,6 +21,7 @@
  */
 
 #include "log.h"
+#include <string.h>
 
 #define MAX_CALLBACKS 32
 
@@ -50,19 +51,43 @@ static const char *level_colors[] = {
 #endif
 
 
+static const char *log_basename(const char *file) {
+  const char *slash = strrchr(file, '/');
+  const char *backslash = strrchr(file, '\\');
+
+  if (backslash && (!slash || backslash > slash))
+    return backslash + 1;
+
+  return slash ? slash + 1 : file;
+}
+
+
+
 static void stdout_callback(log_Event *ev) {
   char buf[16];
   buf[strftime(buf, sizeof(buf), "%H:%M:%S", ev->time)] = '\0';
+
+  const char *file = log_basename(ev->file);
+
 #ifdef LOG_USE_COLOR
   fprintf(
-    ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ",
-    buf, level_colors[ev->level], level_strings[ev->level],
-    ev->file, ev->line);
+    ev->udata,
+    "%s %s%-5s\x1b[0m \x1b[90m%-16s\x1b[0m ",
+    buf,
+    level_colors[ev->level],
+    level_strings[ev->level],
+    file
+  );
 #else
   fprintf(
-    ev->udata, "%s %-5s %s:%d: ",
-    buf, level_strings[ev->level], ev->file, ev->line);
+    ev->udata,
+    "%s %-5s %-16s ",
+    buf,
+    level_strings[ev->level],
+    file
+  );
 #endif
+
   vfprintf(ev->udata, ev->fmt, ev->ap);
   fprintf(ev->udata, "\n");
   fflush(ev->udata);

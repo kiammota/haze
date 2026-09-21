@@ -171,7 +171,7 @@ static void haze_on_read(uv_stream_t *stream, ssize_t nread,
   while (conn->buffer_len > 0) {
     RawBuffer buffer = RawBufferInit(conn->buffer, conn->buffer_len);
 
-    RawBuffer *response = HazeServerAPIDispatcher(conn->ctx, &buffer);
+    RawBuffer *response = HazeServerAPIDispatcher(conn->ctx, (uv_tcp_t*)conn, &buffer);
 
     if (!response) {
       

@@ -35,44 +35,83 @@ static char *session_name_random(void) {
   return name;
 }
 
-Session *SessionNew(const char *session_name, const AudioEngine* eng) {
-  Session *s = malloc(sizeof(Session));
-  log_debug("SESSION Initializated.");
-
-  if (!s)
+Session *SessionNew(const char *sessionName, const AudioEngine *eng) {
+  Session *s = calloc(1, sizeof(Session));
+  if (!s) {
+    log_error("[session] allocation failed");
     return NULL;
+  }
+
+  log_debug("[session] initializing");
 
   s->created_at = time(NULL);
-  s->project_path = NULL;
 
-  if (session_name == NULL)
+  if (sessionName == NULL)
     s->session_name = session_name_random();
   else
-    s->session_name = strdup(session_name);
+    s->session_name = strdup(sessionName);
+
+  if (!s->session_name) {
+    log_error("[session] name allocation failed");
+    goto fail;
+  }
 
   s->SampleList = SampleListNew();
-  log_debug("SESSION SampleList started.");
+  if (!s->SampleList) {
+    log_error("[session] sample list failed");
+    goto fail;
+  }
+  log_debug("[session] sample list ready");
+
   s->ChannelList = ChannelListNew(eng);
-  log_debug("SESSION ChannelList started.");
-   
+  if (!s->ChannelList) {
+    log_error("[session] channel list failed");
+    goto fail;
+  }
+  log_debug("[session] channel list ready");
+
+  log_debug("[session] ready");
   return s;
+
+fail:
+  SessionFree(&s);
+  return NULL;
 }
 
-bool SessionSetName(Session *s, const char *SessionName) {
+bool SessionSetName(Session *s, const char *sessionName) {
+  if (!s || !sessionName)
+    return false;
+
+  char *name = strdup(sessionName);
+  if (!name) {
+    log_error("[session] name allocation failed");
+    return false;
+  }
+
   free(s->session_name);
-  s->session_name = strdup(SessionName);
-  return s->session_name != NULL;
-}
+  s->session_name = name;
 
-const SampleList *SessionGetSampleList(const Session *s) {
-  return s->SampleList;
+  log_debug("[session] name changed");
+  return true;
 }
 
 void SessionFree(Session **s) {
   PTR_FREE_ASSERT(s);
+
+  log_debug("[session] destroying");
+
   free((*s)->session_name);
   free((*s)->project_path);
   SampleListFree(&(*s)->SampleList);
-  free((*s));
+  ChannelListFree(&(*s)->ChannelList);
+
+  free(*s);
   *s = NULL;
+
+  log_debug("[session] destroyed");
 }
+const SampleList *SessionGetSampleList(const Session *s) {
+  return s->SampleList;
+}
+
+

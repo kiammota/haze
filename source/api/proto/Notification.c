@@ -17,11 +17,6 @@ static bool NotificationWriteObject(mpack_writer_t *writer,
                                     const Object *obj);
 
 static Object *NotificationReadObject(mpack_reader_t *reader);
-
-/* -------------------------------------------------------------------------- */
-/* Internal helpers                                                           */
-/* -------------------------------------------------------------------------- */
-
 static bool NotificationWriteObject(mpack_writer_t *writer,
                                     const Object *obj)
 {
