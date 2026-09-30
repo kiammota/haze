@@ -1,29 +1,19 @@
 #include "HazeServer.h"
 #include "Context.h"
-#include "HazeServerDispatcher.h"
 #include "RawBuffer.h"
 #include "logc/log.h"
+#include "server/Dispatch.h"
+#include "stddef.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
-#include "stddef.h"
 
 /* ---------------------------------------------------------- */
 /* Conexão individual                                         */
 /* ---------------------------------------------------------- */
-
-typedef struct {
-  uv_tcp_t handle;
-
-  // Buffer persistente para lidar com framing TCP
-  char *buffer;
-  size_t buffer_len;
-  size_t buffer_cap;
-  const Context* ctx;
-} HazeConn;
 
 typedef struct {
   uv_write_t req;
@@ -35,6 +25,9 @@ static void haze_on_close(uv_handle_t *handle) {
   if (handle->data) {
     HazeConn *conn = (HazeConn *)handle->data;
     handle->data = NULL;
+
+    if (conn->server)
+      HazeServerRemoveConnection(conn->server, conn); // <- antes do free
 
     if (conn->buffer) {
       free(conn->buffer);
@@ -164,26 +157,28 @@ static void haze_on_read(uv_stream_t *stream, ssize_t nread,
 
   free(buf->base);
 
-  /*
-   * O servidor não interpreta o conteúdo.
-   * Apenas entrega os bytes recebidos para a API.
-   */
   while (conn->buffer_len > 0) {
     RawBuffer buffer = RawBufferInit(conn->buffer, conn->buffer_len);
 
-    RawBuffer *response = HazeServerAPIDispatcher(conn->ctx, (uv_tcp_t*)conn, &buffer);
+    DispatchBytes db = ServerDispatch(conn->ctx, (uv_tcp_t *)conn, &buffer);
 
-    if (!response) {
-      
+    if (!db.ok) {
       fflush(stdout);
       log_error("critical fail on msgpack-rpc parser. client disconnected.");
       uv_close((uv_handle_t *)stream, haze_on_close);
       break;
     }
 
-    haze_send(stream, RawBufferData(response), RawBufferLen(response));
+    if (db.response) {
+      haze_send(stream, RawBufferData(db.response), RawBufferLen(db.response));
+      RawBufferFree(&db.response);
+    }
 
-    RawBufferFree(&response);
+    if (db.notification) {
+      HazeServerBroadcast(conn->server, RawBufferData(db.notification),
+                          RawBufferLen(db.notification));
+      RawBufferFree(&db.notification);
+    }
 
     size_t consumed = buffer.len;
 
@@ -207,6 +202,7 @@ static void haze_on_read(uv_stream_t *stream, ssize_t nread,
     uv_close((uv_handle_t *)stream, haze_on_close);
   }
 }
+
 static void haze_on_connect(uv_stream_t *server, int status) {
   if (status < 0) {
     log_error("ON CONNECT", "connect error: %s", uv_strerror(status));
@@ -220,6 +216,7 @@ static void haze_on_connect(uv_stream_t *server, int status) {
     return;
 
   conn->ctx = haze->ctx;
+  conn->server = haze; // <- sobe pra cá, antes de qualquer uv_close possível
 
   int init_ret = uv_tcp_init(server->loop, &conn->handle);
   if (init_ret != 0) {
@@ -229,36 +226,58 @@ static void haze_on_connect(uv_stream_t *server, int status) {
 
   conn->handle.data = conn;
 
-  int accept_ret =
-      uv_accept(server, (uv_stream_t *)&conn->handle);
+  int accept_ret = uv_accept(server, (uv_stream_t *)&conn->handle);
 
   if (accept_ret != 0) {
-    uv_close(
-        (uv_handle_t *)&conn->handle,
-        haze_on_close
-    );
-    return;
+    uv_close((uv_handle_t *)&conn->handle, haze_on_close);
+    return; // <- para aqui, nunca registra
   }
 
   uv_tcp_nodelay(&conn->handle, 1);
 
-  int read_ret = uv_read_start(
-      (uv_stream_t *)&conn->handle,
-      haze_on_alloc,
-      haze_on_read
-  );
+  int read_ret =
+      uv_read_start((uv_stream_t *)&conn->handle, haze_on_alloc, haze_on_read);
 
   if (read_ret != 0) {
-    uv_close(
-        (uv_handle_t *)&conn->handle,
-        haze_on_close
-    );
+    uv_close((uv_handle_t *)&conn->handle, haze_on_close);
+    return; // <- e aqui também
+  }
+
+  HazeServerAddConnection(conn->server, conn);
+}
+
+// public :
+
+int HazeServerAddConnection(HazeServer *s, HazeConn *c) {
+  log_debug("new server connection");
+  if (s->conn_len >= s->conn_cap) {
+    size_t new_cap = s->conn_cap == 0 ? 8 : s->conn_cap * 2;
+    HazeConn **new_arr = realloc(s->connections, new_cap * sizeof(HazeConn *));
+    if (!new_arr) {
+      return -1;
+    }
+    s->connections = new_arr;
+    s->conn_cap = new_cap;
+  }
+  s->connections[s->conn_len++] = c;
+  return 0;
+}
+
+void HazeServerRemoveConnection(HazeServer *s, HazeConn *c) {
+  for (size_t i = 0; i < s->conn_len; i++) {
+    if (s->connections[i] == c) {
+      s->connections[i] = s->connections[s->conn_len - 1];
+      s->conn_len--;
+      return;
+    }
   }
 }
 
-/* ---------------------------------------------------------- */
-/* API pública                                                */
-/* ---------------------------------------------------------- */
+void HazeServerBroadcast(HazeServer *srv, const void *data, size_t len) {
+  for (size_t i = 0; i < srv->conn_len; i++) {
+    haze_send((uv_stream_t *)&srv->connections[i]->handle, data, len);
+  }
+}
 
 HazeServer *HazeServerNew(const char *addr, uint16_t port) {
   HazeServer *s = calloc(1, sizeof(HazeServer));
@@ -285,20 +304,12 @@ int HazeServerStart(const Context *ctx, HazeServer *s) {
   struct sockaddr_in bind_addr;
   uv_ip4_addr(s->addr, s->port, &bind_addr);
 
-  int r = uv_tcp_bind(
-      &s->tcp,
-      (const struct sockaddr *)&bind_addr,
-      0
-  );
+  int r = uv_tcp_bind(&s->tcp, (const struct sockaddr *)&bind_addr, 0);
 
   if (r != 0)
     return r;
 
-  return uv_listen(
-      (uv_stream_t *)&s->tcp,
-      512,
-      haze_on_connect
-  );
+  return uv_listen((uv_stream_t *)&s->tcp, 512, haze_on_connect);
 }
 
 void HazeServerRun(HazeServer *s) {
@@ -350,7 +361,7 @@ void HazeServerFree(HazeServer **server_ptr) {
   }
 
   free(server);
-  
+
   *server_ptr = NULL;
 }
 

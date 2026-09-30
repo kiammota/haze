@@ -5,16 +5,19 @@
 #include "api/proto/Request.h"
 #include "api/proto/Response.h"
 #include "audio/AudioEngine.h"
+#include "audio/Sample.h"
 #include "audio/SampleList.h"
 #include "msgpack/Object.h"
 #include "session/Session.h"
 #include "uv.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
-DispatchResult DispatchRPCMessage(const Context *ctx, uv_tcp_t *connection,
-                                  Request *rq) {
+DispatchResult DispatchRPCMessage(const Context *ctx,
+                                  const uv_tcp_t *connection,
+                                  const Request *rq) {
   if (!ctx || !rq)
     return (DispatchResult){
         .response = ResponseCreateError(0, "Invalid context or request."),
@@ -85,6 +88,8 @@ DispatchResult DispatchRPCMessage(const Context *ctx, uv_tcp_t *connection,
         .notification = NULL};
   }
 
+  // -- samplelist
+
   if (strcmp(method_name, "samplelist/import") == 0) {
     if (RequestParamCount(rq) != 1)
       return (DispatchResult){
@@ -97,21 +102,17 @@ DispatchResult DispatchRPCMessage(const Context *ctx, uv_tcp_t *connection,
       return (DispatchResult){
           .response = ResponseCreateError(msgid, "Expected a string."),
           .notification = NULL};
-
-    SampleImportPayload *p = malloc(sizeof(SampleImportPayload));
-    p->path = strdup(ObjectGetStr(obj));
+    const char *path = ObjectGetStr(obj);
 
     Job *job = malloc(sizeof(Job));
     job->_connection = connection;
     job->_msgid = msgid;
     job->_type = JOB_SAMPLELIST_ADD;
-    job->_payload = p;
+    job->_payload = path;
 
     JobQueuePush(ContextGetRequestQueue(ctx), job);
 
-    return (DispatchResult){.response = NULL,
-                            .notification =
-                                NULL}; // "recebido, processando em outro lugar"
+    return (DispatchResult){.response = NULL, .notification = NULL};
   }
 
   if (strcmp(method_name, "samplelist/remove") == 0) {
@@ -155,4 +156,45 @@ DispatchResult DispatchRPCMessage(const Context *ctx, uv_tcp_t *connection,
   return (DispatchResult){.response =
                               ResponseCreateError(msgid, "Method not found."),
                           .notification = NULL};
+
+  if (strcmp(method_name, "samplelist/get_sample") == 0) {
+    if (RequestParamCount(rq) != 1) {
+      return (DispatchResult){
+          .response = ResponseCreateError(msgid, "Expected sample name."),
+          .notification = NULL};
+    }
+
+    Object *name = RequestParamGet(rq, 0);
+    if (!ObjectExpect(name, OBJ_STR)) {
+      return (DispatchResult){.response =
+                                  ResponseCreateError(msgid, "Expected string"),
+                              .notification = NULL};
+    }
+
+    Sample *sample = SampleListGetSampleByName(sampleList, ObjectGetStr(name));
+    Object *idkey = ObjectCreateStr("id");
+    Object *sample_name_key = ObjectCreateStr("sample_name");
+    Object *volumekey = ObjectCreateStr("volume");
+    Object *pitchkey = ObjectCreateStr("pitch");
+    Object *is_playingkey = ObjectCreateStr("is_playing");
+    Object *sample_ratekey = ObjectCreateStr("sample_rate");
+    Object *durationkey = ObjectCreateStr("duration");
+
+    ObjectMapTable *map_table = ObjectMapTableCreate();
+    ObjectMapTableSet(map_table, idkey, ObjectCreateUInt(SampleGetId(sample)));
+    ObjectMapTableSet(map_table, sample_name_key,
+                      ObjectCreateStr(SampleGetName(sample)));
+    ObjectMapTableSet(map_table, volumekey,
+                      ObjectCreateFloat(SampleGetVolume(sample)));
+    ObjectMapTableSet(map_table, pitchkey,
+                      ObjectCreateFloat(SampleGetPitch(sample)));
+    ObjectMapTableSet(map_table, is_playingkey,
+                      ObjectCreateBool(SampleIsPlaying(sample)));
+    ObjectMapTableSet(map_table, sample_ratekey,
+                      ObjectCreateFloat(SampleGetSampleRate(sample)));
+    ObjectMapTableSet(map_table, durationkey,
+                      ObjectCreateFloat(SampleGetDuration(sample)));
+
+    Response* res = ResponseNew();
+  }
 }

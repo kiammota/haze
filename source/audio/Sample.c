@@ -2,6 +2,7 @@
 #include "HazeMacros.h"
 #include "ResultAudio.h"
 #include "audio/AudioEngine.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,7 @@ Sample *SampleNew(void)
         return NULL;
     }
 
+    s->is_playing = false;
     s->sample_name[0] = '\0';
     s->volume = 1.0f;
     s->pitch = 1.0f;
@@ -220,6 +222,12 @@ float SampleGetPitch(Sample *s)
     if (!s)
         return 0.0f;
     return s->pitch;
+}
+
+uint64_t SampleGetId(Sample* s) {
+  if (!s) return 0;
+  return s->id;
+
 }
 
 float SampleGetDuration(Sample *s)

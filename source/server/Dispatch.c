@@ -1,14 +1,13 @@
-#ifndef HAZE_SERVER_DISPATCHER
-#define HAZE_SERVER_DISPATCHER
-
 #include "server/Dispatch.h"
 #include "Context.h"
 #include "RawBuffer.h"
 #include "api/proto/Request.h"
 #include "api/proto/Response.h"
+#include "api/Dispatcher.h" // <-- FALTANDO: Define DispatchResult e DispatchRPCMessage
 #include "uv.h"
 
-DispatchBytes HazeServerAPIDispatcher(const Context* ctx, uv_tcp_t *conn, RawBuffer *buffer)
+// Sem #ifndef aqui
+DispatchBytes ServerDispatch(const Context* ctx, const uv_tcp_t *conn, RawBuffer *buffer)
 {
     Request *request = RequestUnmarshal(buffer);
 
@@ -31,5 +30,3 @@ DispatchBytes HazeServerAPIDispatcher(const Context* ctx, uv_tcp_t *conn, RawBuf
 
     return out;
 }
-
-#endif

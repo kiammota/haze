@@ -12,7 +12,7 @@ typedef struct {
   Notification *notification;
 } DispatchResult;
 
-DispatchResult DispatchRPCMessage(Context *ctx, uv_tcp_t *connection,
-                                   Request *rq);
+DispatchResult DispatchRPCMessage(const Context *ctx, const uv_tcp_t *connection,
+                                   const Request *rq);
 
 #endif

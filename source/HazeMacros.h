@@ -1,6 +1,8 @@
 #ifndef MACROS_H
 #define MACROS_H
 
+#define DEBUG 0
+
 #define PTR_FREE_ASSERT(x) \
     if (!(x) || !*(x)) return;
 

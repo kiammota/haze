@@ -19,6 +19,7 @@ typedef struct {
   float pitch;
   float duration;
   ma_uint32 sample_rate;
+  bool is_playing;
   char *sample_name;
 } Sample;
 
@@ -41,6 +42,7 @@ float SampleGetPitch(Sample *s);
 float SampleGetDuration(Sample *s);
 float SampleGetSampleRate(Sample *s);
 float SampleGetCursor(Sample *s);
+uint64_t SampleGetId(Sample* s);
 const char *SampleGetName(Sample *s);
 
 #endif

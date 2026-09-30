@@ -33,8 +33,9 @@ typedef union {
   double double_value;
   const char *str_value;
   RawBuffer *bin_value;
-  struct ObjectArray* array_value;
-
+  struct ObjectArray *array_value;
+  ObjectMapTable *map_table_value;
+  ObjectMap *map_value;
 } ObjectValue;
 
 typedef struct {
@@ -45,23 +46,23 @@ typedef struct {
 
 // objects
 
-Object* ObjectNew(void);
-void ObjectFree(Object** ptr_to_object);
-Object* ObjectCopy(const Object* v);
-Object* ObjectCreateStr(const char* str);
-Object* ObjectCreateBool(bool v);
-Object* ObjectCreateNil(void);
-Object* ObjectCreateBool(bool v);
-Object* ObjectCreateInt(int64_t v);
-Object* ObjectCreateUInt(uint64_t v);
-Object* ObjectCreateFloat(float v);
-Object* ObjectCreateDouble(double v);
-Object* ObjectCreateStr(const char* str);
-ObjectType ObjectGetType(const Object* t);
-ObjectValue ObjectGetValue(const Object* t);
-size_t ObjectGetSize(Object* t);
+Object *ObjectNew(void);
+void ObjectFree(Object **ptr_to_object);
+Object *ObjectCopy(const Object *v);
+Object *ObjectCreateStr(const char *str);
+Object *ObjectCreateBool(bool v);
+Object *ObjectCreateNil(void);
+Object *ObjectCreateBool(bool v);
+Object *ObjectCreateInt(int64_t v);
+Object *ObjectCreateUInt(uint64_t v);
+Object *ObjectCreateFloat(float v);
+Object *ObjectCreateDouble(double v);
+Object *ObjectCreateStr(const char *str);
+ObjectType ObjectGetType(const Object *t);
+ObjectValue ObjectGetValue(const Object *t);
+size_t ObjectGetSize(Object *t);
 
-bool ObjectExpect(Object* t, ObjectType v);
+bool ObjectExpect(Object *t, ObjectType v);
 const char *ObjectGetStr(Object *t);
 bool ObjectGetBool(Object *t);
 int64_t ObjectGetInt(Object *t);
@@ -70,23 +71,24 @@ float ObjectGetFloat(Object *t);
 double ObjectGetDouble(Object *t);
 RawBuffer *ObjectGetBin(Object *t);
 ObjectArray *ObjectGetArray(Object *t);
+ObjectMap *ObjectGetMap(Object *t);
+ObjectMapTable *ObjectGetMapTable(Object *t);
 
 // TO DO: ObjectMap *ObjectGetMap(Object *t);
-
 
 // arrays
 
 #define OBJECT_ARRAY_INITIAL_CAPACITY 8
 
-struct ObjectArray{
-    Object **objects;
-    size_t len;
-    size_t capacity;
+struct ObjectArray {
+  Object **objects;
+  size_t len;
+  size_t capacity;
 };
 
 ObjectArray *ObjectArrayCreate(void);
 void ObjectArrayFree(ObjectArray **array);
-ObjectArray* ObjectArrayCopy(const ObjectArray* src);
+ObjectArray *ObjectArrayCopy(const ObjectArray *src);
 
 bool ObjectArrayAppend(ObjectArray *array, const Object *obj);
 Object *ObjectArrayGet(const ObjectArray *array, size_t index);
@@ -97,9 +99,9 @@ size_t ObjectArrayLen(const ObjectArray *array);
 
 #define OBJECT_MAP_INITIAL_CAPACITY 8
 
-struct  ObjectMapEntry {
-  Object* Key;
-  Object* Value;
+struct ObjectMapEntry {
+  Object *Key;
+  Object *Value;
 };
 
 struct ObjectMapTable {
@@ -108,18 +110,20 @@ struct ObjectMapTable {
   size_t capacity;
 };
 
-
-ObjectMap* ObjectMapCreate(const Object* key, const Object* value);
+ObjectMap *ObjectMapCreate(const Object *key, const Object *value);
 void ObjectMapFree(ObjectMap **map);
 ObjectMap *ObjectMapCopy(const ObjectMap *src);
+Object* ObjectMapToObject(const ObjectMap* src);
 
 ObjectMapTable *ObjectMapTableCreate(void);
 void ObjectMapTableFree(ObjectMapTable **table);
 ObjectMapTable *ObjectMapTableCopy(const ObjectMapTable *src);
 
-bool ObjectMapTableSet(ObjectMapTable *table, const Object *key, const Object *value);
+bool ObjectMapTableSet(ObjectMapTable *table, const Object *key,
+                       const Object *value);
 Object *ObjectMapTableGet(const ObjectMapTable *table, const Object *key);
 bool ObjectMapTableRemove(ObjectMapTable *table, const Object *key);
 size_t ObjectMapTableLen(const ObjectMapTable *table);
+Object *ObjectMapTableToObject(const ObjectMapTable *table);
 
 #endif

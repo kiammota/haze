@@ -5,6 +5,7 @@
 #include "fs/InstanceRegistry.h"
 #include "fs/Paths.h"
 #include "logc/log.h"
+#include "uv.h"
 
 #include <stdlib.h>
 
@@ -44,6 +45,7 @@ Context *ContextNew(void) {
     goto fail;
   }
   log_debug("[context] registry ready");
+  uv_loop_init(ctx->_loop);
 
   ctx->_requests = JobQueueNew();
   if (!ctx->_requests) {

@@ -257,6 +257,11 @@ RawBuffer *ObjectGetBin(Object *t) { return t->value.bin_value; }
 
 ObjectArray *ObjectGetArray(Object *t) { return t->value.array_value; }
 
+ObjectMapTable *ObjectGetMapTable(Object *t) {
+  return t->value.map_table_value;
+}
+ObjectMap *ObjectGetMap(Object *t) { return t->value.map_value; }
+
 // --- Operações de Array ---
 
 ObjectArray *ObjectArrayCreate(void) {
@@ -563,4 +568,40 @@ size_t ObjectMapTableLen(const ObjectMapTable *table) {
   if (!table)
     return 0;
   return table->len;
+}
+
+Object *ObjectMapTableToObject(const ObjectMapTable *table) {
+  if (!table)
+    return NULL;
+
+  Object *object = malloc(sizeof(Object));
+  if (!object)
+    return NULL;
+
+  object->type = OBJ_MAP;
+  object->value.map_table_value = ObjectMapTableCopy(table);
+  object->size = table->len;
+
+  return object;
+}
+
+Object *ObjectMapToObject(const ObjectMap *src) {
+  if (!src || !src->Key || !src->Value)
+    return NULL;
+
+  Object *object = malloc(sizeof(Object));
+  if (!object)
+    return NULL;
+
+  ObjectMap *map = ObjectMapCopy(src);
+  if (!map) {
+    free(object);
+    return NULL;
+  }
+
+  object->type = OBJ_MAP;
+  object->value.map_value = map;
+  object->size = 1;
+
+  return object;
 }

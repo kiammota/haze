@@ -6,6 +6,7 @@
 #include "fs/InstanceRegistry.h"
 #include "fs/Paths.h"
 #include "session/Session.h"
+#include "uv.h"
 
 /**
  * @brief Global context of a Haze instance.
@@ -20,6 +21,7 @@ typedef struct {
   AudioEngine* _audioEngine;
   JobQueue* _requests;
   JobQueue* _results;
+  uv_loop_t* _loop;
 } Context;
 
 /**
@@ -30,6 +32,8 @@ typedef struct {
  * @return A pointer to the created context, or NULL on failure.
  */
 Context* ContextNew(void);
+
+const uv_loop_t* ContextGetLoop(Context* ctx);
 
 /**
  * @brief Frees a global context.

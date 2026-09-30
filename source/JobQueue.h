@@ -12,6 +12,7 @@ typedef enum {
 } JobType;
 
 typedef struct {
+  // represents the msgid
   uint32_t _msgid;
   uv_tcp_t *_connection;
   JobType _type;
@@ -26,7 +27,10 @@ typedef struct {
   uv_async_t awake;
 } JobQueue;
 
-JobQueue *JobQueueNew(void);
+Job JobInit(uint32_t msgid, JobType typeJob, uv_tcp_t* connect, void* data);
+void JobFree(Job** jb);
+
+JobQueue *JobQueueNew(uv_loop_t* loop);
 void JobQueueFree(JobQueue **jq);
 
 Result JobQueuePush(JobQueue *jq, Job *job);        
